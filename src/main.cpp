@@ -35,64 +35,74 @@
  * 3. Calculate distance using speed of sound.
  * 4. Rotate servo based on threshold distance (15 cm).
  */
-#include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <DHT.h>
 
-/** @brief OLED display width in pixels */
-#define SCREEN_WIDTH 128
+#include <Servo.h>
 
-/** @brief OLED display height in pixels */
-#define SCREEN_HEIGHT 64
+/** @brief Servo motor object */
+Servo myservo;
 
-/** @brief OLED reset pin (-1 if shared reset line is used) */
-#define OLED_RESET -1
+/** @brief Ultrasonic trigger pin */
+int trg_pin = 9;
 
-/**
- * @brief SSD1306 OLED display object.
- * 
- * Uses I2C communication via the default Wire interface.
- */
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+/** @brief Ultrasonic echo pin */
+int ech_pin = 10;
 
-/** @brief Digital pin connected to DHT11 data line */
-#define DHTPIN 2
-
-/** @brief DHT sensor type definition */
-#define DHTTYPE DHT11
-
-/**
- * @brief DHT sensor object instance.
- */
-DHT dht(DHTPIN, DHTTYPE);
 
 /**
  * @brief System initialization routine.
  *
- * @details
- * - Initializes Serial communication at 9600 baud.
- * - Initializes DHT11 sensor.
- * - Initializes OLED display.
- * - Displays startup splash message.
- * - Halts execution if OLED initialization fails.
+ * Initializes:
+ * - Ultrasonic sensor pins
+ * - Servo motor attachment
+ * - Serial communication (9600 baud)
  */
-
 void setup() {
-    Serial.begin(9600);
-    dht.begin();
+  pinMode(trg_pin, OUTPUT);
+  pinMode(ech_pin, INPUT);
 
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        Serial.println("OLED not found");
-        while (1);   ///< Halt system if OLED is not detected
-    }
+  myservo.attach(5);   ///< Attach servo to digital pin 5
 
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.println("DHT11 Sensor");
-    display.display();
-    delay(2000);
+  Serial.begin(9600);
+}
+
+
+/**
+ * @brief Main control loop.
+ *
+ * @details
+ * - Sends trigger pulse to ultrasonic sensor.
+ * - Measures echo duration.
+ * - Calculates distance in centimeters.
+ * - Rotates servo to 180° if object ≤ 15 cm.
+ * - Otherwise sets servo to 0°.
+ * - Prints distance on Serial Monitor.
+ */
+void loop() {
+
+  // Send trigger pulse
+  digitalWrite(trg_pin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trg_pin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trg_pin, LOW);
+
+  // Measure echo duration
+  long duration = pulseIn(ech_pin, HIGH);
+
+  // Calculate distance (cm)
+  float distance = duration * (0.0343 / 2);
+
+  // Control servo based on distance threshold
+  if (distance <= 15) {
+    myservo.write(180);
+  } else {
+    myservo.write(0);
+  }
+
+  // Print distance to Serial Monitor
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  delay(10);
 }
